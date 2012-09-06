@@ -45,49 +45,65 @@
 
 ;;; Code:
 
-(defun read-char-spec (prompt specification
-                              &optional inherit-input-method seconds)
+(defun read-char-spec (prompt specification &optional inherit-input-method
+			      seconds initial-help buffer-name)
   "Ask the user a question with multiple possible answers.
 No confirmation of the answer is requested; a single character is
 enough.
 
-PROMPT is the string to display to ask the question. It should end in a
-space; `read-char-spec' adds help text to the end of it.
+PROMPT is the string to display to ask the question. It should
+end in a space; `read-char-spec' adds help text to the end of it.
 
 SPECIFICATION is a list of key specs, each of the form (KEY VALUE
 HELP-TEXT).
 
-Arguments INHERIT-INPUT-METHOD and SECONDS are as in `read-char', which
-see."
+Arguments INHERIT-INPUT-METHOD and SECONDS are as in `read-char',
+which see.
+
+If optional INITIAL-HELP is non-nil display a help buffer,
+otherwise that buffer is only shown when the user requests so.
+
+If optional BUFFER-NAME is non-nil display help in a buffer with
+that name, otherwise a generic buffer is used."
   (let* ((spec-with-help
-          (append (list (list ?? read-char-spec-help-cmd
-                              "Get help"))
+          (append (unless initial-help
+		    (list (list ?? read-char-spec-help-cmd
+				"Get help")))
                   specification))
          (keys (mapconcat (lambda (cell)
                             (read-char-spec-format-key (car cell)))
                           specification
                           ", "))
-         (prompt-with-keys (format "%s (%s, or ? for help) "
-                                   prompt keys))
+         (prompt-with-keys (format "%s (%s%s) "
+                                   prompt keys
+				   (if initial-help "" ", or ? for help")))
          char-read
-         (current read-char-spec-not-found))
+	 (buffer (get-buffer-create (or buffer-name
+					" *read-char-spec*")))
+         (current read-char-spec-not-found)
+	 (window-configuration (current-window-configuration)))
     ;; Loop until the user types a char actually in `specification'
-    (while (eq current read-char-spec-not-found)
-      (setq char-read (read-char-exclusive prompt-with-keys))
+    (unwind-protect
+	(while (eq current read-char-spec-not-found)
+	  (when initial-help
+	    (read-char-spec-generate-help prompt specification buffer))
 
-      (let ((entry (assoc char-read spec-with-help)))
-        (when entry
-          (setq current (cadr entry))))
+	  (setq char-read (read-char-exclusive prompt-with-keys))
 
-      ;; Provide help when requested
-      (when (eq current read-char-spec-help-cmd)
-        (read-char-spec-generate-help prompt specification)
-        (setq current read-char-spec-not-found))
+	  (let ((entry (assoc char-read spec-with-help)))
+	    (when entry
+	      (setq current (cadr entry))))
 
-      (setq prompt-with-keys
-            (format "Please answer %s. %s (%s, or ? for help) "
-                    keys prompt keys)))
+	  ;; Provide help when requested
+	  (when (eq current read-char-spec-help-cmd)
+	    (read-char-spec-generate-help prompt specification buffer)
+	    (setq current read-char-spec-not-found))
 
+	  (setq prompt-with-keys
+		(format "Please answer %s. %s "
+			keys prompt-with-keys)))
+      (kill-buffer buffer)
+      (set-window-configuration window-configuration))
     current))
 
 ;;; There be dragons here
@@ -106,9 +122,9 @@ see."
   "Format KEY like input for the `kbd' macro."
   (edmacro-format-keys (vector key)))
 
-(defun read-char-spec-generate-help (prompt specification)
+(defun read-char-spec-generate-help (prompt specification buffer)
   "Generate help text for PROMPT, based on SPECIFICATION."
-  (with-output-to-temp-buffer (help-buffer)
+  (with-output-to-temp-buffer buffer
     (help-setup-xref (list #'read-char-spec) nil)
     (princ (format "Help for \"%s\":\n\n"
                    (comment-string-strip prompt t t)))
