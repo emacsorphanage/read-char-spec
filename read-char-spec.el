@@ -46,7 +46,7 @@
 ;;; Code:
 
 (defun read-char-spec (prompt specification &optional inherit-input-method
-			      seconds initial-help buffer-name)
+			      seconds initial-help help-text buffer-name)
   "Ask the user a question with multiple possible answers.
 No confirmation of the answer is requested; a single character is
 enough.
@@ -82,11 +82,14 @@ that name, otherwise a generic buffer is used."
 					" *read-char-spec*")))
          (current read-char-spec-not-found)
 	 (window-configuration (current-window-configuration)))
+    (unless help-text
+      (setq help-text (princ (format "Help for \"%s\":"
+				     (comment-string-strip prompt t t)))))
     ;; Loop until the user types a char actually in `specification'
     (unwind-protect
 	(while (eq current read-char-spec-not-found)
 	  (when initial-help
-	    (read-char-spec-generate-help prompt specification buffer))
+	    (read-char-spec-generate-help help-text specification buffer))
 
 	  (setq char-read (read-char-exclusive prompt-with-keys))
 
@@ -96,7 +99,7 @@ that name, otherwise a generic buffer is used."
 
 	  ;; Provide help when requested
 	  (when (eq current read-char-spec-help-cmd)
-	    (read-char-spec-generate-help prompt specification buffer)
+	    (read-char-spec-generate-help help-text specification buffer)
 	    (setq current read-char-spec-not-found))
 
 	  (setq prompt-with-keys
@@ -122,12 +125,12 @@ that name, otherwise a generic buffer is used."
   "Format KEY like input for the `kbd' macro."
   (edmacro-format-keys (vector key)))
 
-(defun read-char-spec-generate-help (prompt specification buffer)
+(defun read-char-spec-generate-help (help-text specification buffer)
   "Generate help text for PROMPT, based on SPECIFICATION."
   (with-output-to-temp-buffer buffer
     (help-setup-xref (list #'read-char-spec) nil)
-    (princ (format "Help for \"%s\":\n\n"
-                   (comment-string-strip prompt t t)))
+    (princ help-text)
+    (princ "\n\n")
     (princ (mapconcat (lambda (cell)
                         (format "%s - %s"
                                 (read-char-spec-format-key
