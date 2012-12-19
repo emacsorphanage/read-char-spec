@@ -40,8 +40,8 @@
 ;; for interactive help for the user (by typing "?").
 
 ;;; History:
-;; 20009-06-17: Initial version, inspired by a conversation with ngirard
-;;              in #emacs.
+;; 2009-06-17: Initial version, inspired by a conversation with ngirard
+;;             in #emacs.
 
 ;;; Code:
 
