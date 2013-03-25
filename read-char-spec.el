@@ -137,6 +137,7 @@ that name, otherwise a generic buffer is used."
                                  (car cell))
                                 (caddr cell)))
                       specification "\n"))
+    (princ "\n\n")
     (help-print-return-message)))
 
 (provide 'read-char-spec)
